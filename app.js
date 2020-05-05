@@ -7,7 +7,9 @@ const favicon      = require('serve-favicon');
 const hbs          = require('hbs');
 const mongoose     = require('mongoose');
 const logger       = require('morgan');
-const path         = require('path');
+const path = require('path');
+const cors = require('cors');
+
 
 
 // WHEN INTRODUCING USERS DO THIS:
@@ -22,7 +24,7 @@ const path         = require('path');
 // IF YOU STILL DIDN'T, GO TO 'configs/passport.js' AND UN-COMMENT OUT THE WHOLE FILE
 
 mongoose
-  .connect('mongodb://localhost/project-management-server', {useNewUrlParser: true})
+  .connect(process.env.MONGODB_URI, {useNewUrlParser: true})
   .then(x => {
     console.log(`Connected to Mongo! Database name: "${x.connections[0].name}"`)
   })
@@ -43,11 +45,11 @@ app.use(cookieParser());
 
 // Express View engine setup
 
-app.use(require('node-sass-middleware')({
-  src:  path.join(__dirname, 'public'),
-  dest: path.join(__dirname, 'public'),
-  sourceMap: true
-}));
+// app.use(require('node-sass-middleware')({
+//   src:  path.join(__dirname, 'public'),
+//   dest: path.join(__dirname, 'public'),
+//   sourceMap: true
+// }));
       
 
 app.set('views', path.join(__dirname, 'views'));
@@ -67,12 +69,18 @@ app.locals.title = 'Express - Generated with IronGenerator';
 
 // ADD CORS SETTINGS HERE TO ALLOW CROSS-ORIGIN INTERACTION:
 
-
+app.use(cors({
+  credentials: true,
+  origin: ['http://localhost:3000'] // <== this will be the URL of our React app (it will be running on port 3000)
+}));
 
 // ROUTES MIDDLEWARE STARTS HERE:
 
 const index = require('./routes/index');
 app.use('/', index);
 
+//api routes
+app.use('/api', require('./routes/project'));
+app.use('/api', require('./routes/task'));
 
 module.exports = app;
