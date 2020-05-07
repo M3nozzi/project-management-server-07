@@ -1,98 +1,114 @@
-const express = require('express');
-const mongoose = require('mongoose');
-const router  = express.Router();
- 
-const Project = require('../models/project-model');
-const Task = require('../models/task-model'); // <== !!!
- 
- 
-//GET PROJECTS
+// routes/project.js
+const express = require("express");
+const mongoose = require("mongoose");
+const router = express.Router();
 
-router.get('/projects', (req, res) => {
+const Project = require("../models/project");
+const uploader = require("../configs/cloudinary");
+
+// GET PROJECTS
+
+router.get("/projects", (req, res) => {
   Project.find()
-    .then(projects => res.json(projects))
-    .catch(error => res.json(error));
-})
+    .populate("tasks")
+    .sort({ createdAt: -1 })
+    .then((projects) => res.json(projects))
+    .catch((error) => res.status(500).json(error));
+});
 
-// POST route => to create a new project
-router.post('/projects', (req, res, next) => {
-  
-  //check if body was provided
-  if (Object.keys(req.body).length === 0) {
-    res.status(400).json({ message: "no body provided" })
+// GET route => to get a specific project/detailed view
+router.get("/projects/:id", (req, res, next) => {
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    res.status(400).json({ message: "Specified id is not valid" });
     return;
   }
-  
+
+  // tasks are being populated
+  Project.findById(req.params.id)
+    .populate("tasks")
+    .then((response) => {
+      // console.log(req.user, response);
+      res.status(200).json(response);
+    })
+    .catch((err) => {
+      res.json(err);
+    });
+});
+
+// POST route => to create a new project
+router.post("/projects", (req, res, next) => {
+  // checks if body was provided
+  if (Object.keys(req.body).length === 0) {
+    res.status(400).json({ message: "no body provided" });
+    return;
+  }
+
   Project.create({
     title: req.body.title,
     description: req.body.description,
-    tasks: []
+    tasks: [],
+    owner: req.user._id,
+    imageUrl: req.body.imageUrl,
   })
-    .then(response => {
+    .then((response) => {
       res.json(response);
     })
-    .catch(err => {
+    .catch((err) => {
       res.status(500).json(err);
-    })
+    });
 });
-  
 
-
-// GET route => to get a specific project/detailed view
-router.get('/projects/:id', (req, res, next)=>{
- 
-  if(!mongoose.Types.ObjectId.isValid(req.params.id)) {
-    res.status(400).json({ message: 'Specified id is not valid' });
-    return;
-  }
- 
-  // our projects have array of tasks' ids and 
-  // we can use .populate() method to get the whole task objects
-  //                                   ^
-  //                                   |
-  //                                   |
-  Project.findById(req.params.id).populate('tasks')
-    .then(response => {
-      res.status(200).json(response);
-    })
-    .catch(err => {
-      res.json(err);
-    })
-})
- 
 // PUT route => to update a specific project
-router.put('/projects/:id', (req, res, next)=>{
- 
-  if(!mongoose.Types.ObjectId.isValid(req.params.id)) {
-    res.status(400).json({ message: 'Specified id is not valid' });
+router.put("/projects/:id", (req, res, next) => {
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    res.status(400).json({ message: "Specified id is not valid" });
     return;
   }
- 
+
   Project.findByIdAndUpdate(req.params.id, req.body)
     .then(() => {
-      res.json({ message: `Project with ${req.params.id} is updated successfully.` });
+      res.json({
+        message: `Project with ${req.params.id} is updated successfully.`,
+      });
     })
-    .catch(err => {
+    .catch((err) => {
       res.status(500).json(err);
-    })
-})
- 
+    });
+});
+
 // DELETE route => to delete a specific project
-router.delete('/projects/:id', (req, res, next)=>{
- 
-  if(!mongoose.Types.ObjectId.isValid(req.params.id)) {
-    res.status(400).json({ message: 'Specified id is not valid' });
+router.delete("/projects/:id", (req, res, next) => {
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    res.status(400).json({ message: "Specified id is not valid" });
     return;
   }
- 
+
   Project.findByIdAndRemove(req.params.id)
     .then(() => {
-      res.json({ message: `Project with ${req.params.id} is removed successfully.` });
+      res.json({
+        message: `Project with ${req.params.id} is removed successfully.`,
+      });
     })
-    .catch( err => {
-      res.json(err);
-    })
-})
- 
- 
+    .catch((err) => {
+      res.status(500).json(err);
+    });
+});
+
+// FILE UPLOAD
+
+router.post("/upload", uploader.single("imageUrl"), (req, res, next) => {
+  console.log("file is: ", req.file);
+
+  if (!req.file) {
+    next(new Error("No file uploaded!"));
+    return;
+  }
+  // get secure_url from the file object and save it in the
+  // variable 'secure_url', but this can be any name, just make sure you remember to use the same in frontend
+  res.json({
+    secure_url: req.file.secure_url,
+    originalName: req.file.originalname,
+  });
+});
+
 module.exports = router;
